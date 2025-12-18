@@ -196,7 +196,7 @@ Passo 1: Obter o Código
 Bash
 
 cd C:\xampp\htdocs
-git clone -b main https://github.com/ArpaoCeleste/saposalas.git 
+git clone -b main https://github.com/ArpaoCeleste/sapossalas.git 
 cd saposalas
 
     Instala as dependências do PHP usando o Composer:
@@ -415,7 +415,7 @@ To run this project on your local machine (XAMPP/MAMP environment), follow the s
 
 ```bash
 cd C:\xampp\htdocs
-git clone -b main https://github.com/ArpaoCeleste/saposalas.git 
+git clone -b main https://github.com/ArpaoCeleste/sapossalas.git 
 cd saposalas
 ```
 Install PHP dependencies using Composer:
