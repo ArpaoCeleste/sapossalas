@@ -1,0 +1,7 @@
+# Impede que vejam a lista de ficheiros se entrarem em saw.pt/backend/
+Options -Indexes
+
+# (Opcional) Bloqueia acesso direto apenas ao config.php, mas permite que o PHP o use
+<Files "config.php">
+    Deny from all
+</Files>

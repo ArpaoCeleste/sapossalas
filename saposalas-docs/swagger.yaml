@@ -1,0 +1,550 @@
+openapi: 3.0.0
+info:
+  title: SAPOSalas API & Web Endpoints
+  description: >
+    Documentação técnica completa do sistema de reservas SAPOSalas.
+    Abrange APIs JSON (AJAX), processamento de formulários (POST) e páginas de visualização (GET).
+  version: 1.6.0
+  contact:
+    name: Equipa SAPOSalas
+    email: admin@saposalas.pt
+
+servers:
+  - url: https://sapossalas.rf.gd
+    description: Servidor de Produção (InfinityFree)
+  - url: http://localhost/saposalas
+    description: Servidor Local (XAMPP)
+
+tags:
+  - name: Autenticação
+    description: Login, Registo, Recuperação de Password e 2FA.
+  - name: Backend JSON
+    description: APIs que retornam dados em formato JSON (usadas por JavaScript).
+  - name: Admin (Backend)
+    description: Processamento de dados de administração (POST).
+  - name: Reservas
+    description: Criação, Edição e Cancelamento de reservas.
+  - name: Páginas Públicas & Dashboards
+    description: Navegação do site (GET).
+  - name: Sistema
+    description: Scripts de manutenção e verificação.
+
+paths:
+
+  /login.php:
+    get:
+      tags:
+        - Autenticação
+        - Páginas Públicas & Dashboards
+      summary: Página de Login
+      responses:
+        '200':
+          description: HTML do formulário.
+    post:
+      tags:
+        - Autenticação
+      summary: Processar Login
+      description: Valida credenciais. Se correto, retorna HTML para o passo 2FA ou redireciona.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [email, pass, csrf_token]
+              properties:
+                email:
+                  type: string
+                  format: email
+                pass:
+                  type: string
+                  format: password
+                remember:
+                  type: string
+                  enum: ['on']
+                g-recaptcha-response:
+                  type: string
+                csrf_token:
+                  type: string
+      responses:
+        '200':
+          description: Processado com sucesso.
+
+  /criar-conta.php:
+    post:
+      tags:
+        - Autenticação
+      summary: Registar Utilizador
+      description: Cria conta inativa e envia email de confirmação.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [nome, email, pass, pass-conf, datanascimento, csrf_token]
+              properties:
+                nome:
+                  type: string
+                email:
+                  type: string
+                pass:
+                  type: string
+                pass-conf:
+                  type: string
+                datanascimento:
+                  type: string
+                  format: date
+                g-recaptcha-response:
+                  type: string
+                csrf_token:
+                  type: string
+      responses:
+        '200':
+          description: HTML com mensagem de sucesso ou erro.
+
+  /confirmar-conta.php:
+    get:
+      tags:
+        - Autenticação
+      summary: Ativar Conta
+      description: Link clicado no email para ativar o utilizador.
+      parameters:
+        - in: query
+          name: token
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Conta ativada.
+
+  /repor-password.php:
+    post:
+      tags:
+        - Autenticação
+      summary: Recuperação de Password
+      description: Gere os 2 passos (Pedido de email e Definição de nova password).
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                action_type:
+                  type: string
+                  enum: [initiate_reset, finish_reset]
+                email:
+                  type: string
+                  description: Para initiate_reset.
+                pass:
+                  type: string
+                  description: Para finish_reset.
+                pass-conf:
+                  type: string
+                  description: Para finish_reset.
+                csrf_token:
+                  type: string
+      responses:
+        '200':
+          description: HTML do próximo passo.
+
+  /logout.php:
+    get:
+      tags:
+        - Autenticação
+      summary: Logout
+      description: Destrói a sessão e cookies. Redireciona para index.
+      responses:
+        '302':
+          description: Redireciona para Index.
+
+  # ==========================================
+  # BACKEND API (JSON RETURNS)
+  # ==========================================
+  /backend/api_occupancy.php:
+    get:
+      tags:
+        - Backend JSON
+      summary: Obter Ocupação (Grid)
+      description: Retorna dados para construir a grelha de horários.
+      parameters:
+        - in: query
+          name: data
+          schema:
+            type: string
+            format: date
+          required: false
+     responses:
+        '200':
+          description: JSON com salas e reservas.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  rooms:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        nome: { type: string }
+                  reservations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        room_id: { type: integer }
+                        hora_inicio: { type: string }
+                        hora_fim: { type: string }
+                        professor_nome: { type: string }
+                  updated_at:
+                    type: string
+
+  /backend/api_security.php:
+    post:
+      tags:
+        - Backend JSON
+      summary: Segurança (2FA / Códigos)
+      description: Envia e valida códigos por email via AJAX.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [send_code, verify_code]
+                context:
+                  type: string
+                  enum: [general, password, delete]
+                code:
+                  type: string
+                csrf_token:
+                  type: string
+      responses:
+        '200':
+          description: JSON Result.
+
+  /backend/update_user.php:
+    post:
+      tags:
+        - Backend JSON
+      summary: Atualizar Perfil / Eliminar
+      description: Gere dados do utilizador, password e eliminação de conta.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                action:
+                  type: string
+                  enum: [update_profile, update_password, execute_delete]
+                nome:
+                  type: string
+                email:
+                  type: string
+                telefone:
+                  type: string
+                genero:
+                  type: string
+                imagem_perfil:
+                  type: string
+                  format: binary
+                current_password:
+                  type: string
+                new_password:
+                  type: string
+                csrf_token:
+                  type: string
+      responses:
+        '200':
+          description: JSON Result.
+
+  /backend/manage_user_reservations.php:
+    post:
+      tags:
+        - Backend JSON
+        - Reservas
+      summary: Gerir Reservas do Utilizador (Editar/Cancelar)
+      description: >
+        Permite ao utilizador cancelar (muda estado para 'cancelada') ou editar as suas reservas. 
+        Gera LOGs de atividade.
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [action, id]
+              properties:
+                action:
+                  type: string
+                  enum: [cancel, edit]
+                id:
+                  type: integer
+                data:
+                  type: string
+                  format: date
+                hora_inicio:
+                  type: string
+                hora_fim:
+                  type: string
+                descricao:
+                  type: string
+      responses:
+        '200':
+          description: JSON Result.
+
+  /backend/admin_room_details.php:
+    get:
+      tags:
+        - Backend JSON
+      summary: Detalhes da Sala (Modal)
+      description: Retorna dados completos de uma sala (incluindo galeria) para popups.
+      parameters:
+        - in: query
+          name: room_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: JSON Object.
+
+  # ==========================================
+  # ADMINISTRAÇÃO E RESERVAS (FORMS POST)
+  # ==========================================
+  /backend/manage_rooms.php:
+    post:
+      tags:
+        - Admin (Backend)
+      summary: CRUD Salas
+      description: Cria, edita ou elimina salas (Admin apenas).
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [action, csrf_token]
+              properties:
+                action:
+                  type: string
+                  enum: [adicionar, editar, eliminar]
+                id:
+                  type: integer
+                nome:
+                  type: string
+                capacidade:
+                  type: integer
+                local:
+                  type: string
+                equipamentos:
+                  type: string
+                descricao:
+                  type: string
+                galeria[]:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                existing_photos[]:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '302':
+          description: Redireciona para admin.php.
+
+  /backend/manage_users.php:
+    post:
+      tags:
+        - Admin (Backend)
+      summary: Gestão de Utilizadores (Reativar)
+      description: Permite ao administrador reativar contas desativadas.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [action, id]
+              properties:
+                action:
+                  type: string
+                  enum: [reativar]
+                id:
+                  type: integer
+                section:
+                  type: string
+                  default: 'utilizadores'
+      responses:
+        '302':
+          description: Redireciona para admin.php com mensagem SweetAlert.
+
+  /backend/processar_reserva.php:
+    post:
+      tags:
+        - Reservas
+      summary: Submeter Nova Reserva
+      description: >
+        Valida conflitos, insere nova reserva na BD, envia email de confirmação e gera LOG.
+        Estado inicial da reserva é 'ativa'.
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [room_id, data, hora_inicio, hora_fim, csrf_token]
+              properties:
+                room_id:
+                  type: integer
+                data:
+                  type: string
+                  format: date
+                hora_inicio:
+                  type: string
+                hora_fim:
+                  type: string
+                descricao:
+                  type: string
+                csrf_token:
+                  type: string
+      responses:
+        '302':
+          description: Redireciona para detalhes.php com sucesso ou erro.
+
+  # ==========================================
+  # SISTEMA E MANUTENÇÃO
+  # ==========================================
+  /backend/verificar_conclusao.php:
+    get:
+      tags:
+        - Sistema
+      summary: Atualizar Estado de Reservas Passadas
+      description: >
+        Script incluído no início das páginas principais. 
+        Atualiza reservas 'ativas' passadas para 'concluida'.
+      responses:
+        '200':
+          description: Execução interna (sem output direto).
+
+  # ==========================================
+  # PÁGINAS PÚBLICAS & DASHBOARDS (GET)
+  # ==========================================
+  /index.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Homepage
+      responses:
+        '200':
+          description: HTML.
+
+  /reservar.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Pesquisa de Salas
+      parameters:
+        - in: query
+          name: capacity
+          schema:
+            type: integer
+        - in: query
+          name: location
+          schema:
+            type: string
+      responses:
+        '200':
+          description: HTML.
+
+  /detalhes.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Página de Detalhes da Sala
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: HTML.
+
+  /admin.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Painel de Administração
+      description: Acesso restrito (Admin). Gestão de salas, utilizadores (ativos/inativos) e ocupação.
+      parameters:
+        - in: query
+          name: section
+          schema:
+            type: string
+            enum: [dashboard, salas, utilizadores, ocupacao, definicoes]
+        - in: query
+          name: professor
+          schema:
+            type: integer
+            description: Filtro de ID de professor.
+      responses:
+        '200':
+          description: HTML do Dashboard Admin.
+
+  /perfil.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Perfil do Utilizador
+      description: Dashboard do utilizador comum. Histórico de reservas e definições.
+      parameters:
+        - in: query
+          name: goto
+          schema:
+            type: string
+            enum: [reservas, definicoes]
+      responses:
+        '200':
+          description: HTML do Dashboard User.
+
+  /pagina_sobrenos.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Sobre Nós
+      responses:
+        '200':
+          description: HTML.
+
+  /politica_de_privacidade.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Política de Privacidade
+      responses:
+        '200':
+          description: HTML.
+
+  /politica_de_cookies.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Política de Cookies
+      responses:
+        '200':
+          description: HTML.
+
+  /termos_de_utilizador.php:
+    get:
+      tags:
+        - Páginas Públicas & Dashboards
+      summary: Termos e Condições
+      responses:
+        '200':
+          description: HTML.
