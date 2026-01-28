@@ -493,3 +493,11 @@ Contact Point	Details
 Team	SAPOSalas
 Email	admin@saposalas.pt
 Support	Technical support for critical bugs, security flaws, and implementation questions.
+
+🟣 Licença
+
+Este projeto está licenciado sob a Licença MIT.
+
+🟣 Autor
+
+ArpaoCeleste
